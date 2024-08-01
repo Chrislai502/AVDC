@@ -34,6 +34,11 @@ def list_directories_in_directory(directory_path):
 class SequentialDatasetNp(Dataset):
     def __init__(self, path="../datasets/numpy/bridge_data_v1/berkeley", sample_per_seq=7, debug=False, target_size=(128, 128), data_type="npy"):
         print("Preparing dataset...")
+
+        # Check if the path is a directory and exists
+        if not os.path.isdir(path):
+            raise ValueError(f"Invalid path: {path}. The specified path does not exist or is not a directory.")
+
         self.sample_per_seq = sample_per_seq
 
         # Get a list of all file paths that match the pattern **/out.npy within the specified path, recursively.
@@ -57,6 +62,8 @@ class SequentialDatasetNp(Dataset):
         for seq_dir in tqdm(sequence_dirs):
             # Extract sequences and tasks from each file path
             obs, task = self.extract_seq(seq_dir, extraction_mode)
+            print("OBS: ", len(obs))
+            print("OBS[0]: ", len(obs[0]))
             tasks.extend(task)
             obss.extend(obs)
 
@@ -85,12 +92,20 @@ class SequentialDatasetNp(Dataset):
         if mode == "mp4":
             outputs = []
             for video_file in glob(os.path.join(seqs_path, "*.mp4")):
-                # print(f"Processing video: {video_file}")
                 cap = cv2.VideoCapture(video_file)
-                
-                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                # print(f"Total Frames: {total_frames}")
-                
+
+                # Alternative method to count total frames
+                total_frames = 0
+                while cap.isOpened():
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    total_frames += 1
+
+                cap.release()
+                cap = cv2.VideoCapture(video_file)  # Reopen the video for actual processing
+                print(f"Total Frames: {total_frames}")
+
                 if total_frames == 0:
                     cap.release()
                     continue
@@ -98,6 +113,7 @@ class SequentialDatasetNp(Dataset):
                 # Calculate frame indices to sample
                 sample_indices = [int(i * (total_frames - 1) / (self.sample_per_seq - 1)) for i in range(self.sample_per_seq - 1)]
                 sample_indices.append(total_frames - 1)  # Ensure the last frame is always included
+                print(f"Sample Indices: {sample_indices}")
                 sampled_obs = []
                 frame_count = 0
                 next_sample_index = sample_indices.pop(0)
@@ -105,21 +121,28 @@ class SequentialDatasetNp(Dataset):
                 while cap.isOpened() and sample_indices:
                     ret, frame = cap.read()
                     if not ret:
+                        print("Frame not read")
                         break
 
-                    if frame_count == next_sample_index:
+                    if frame_count >= next_sample_index:
+                        print(f"Frame Count: {frame_count}, Next Sample Index: {next_sample_index}")
                         sampled_obs.append(frame)
                         if sample_indices:
                             next_sample_index = sample_indices.pop(0)
+                            print(f"Next Sample Index: {next_sample_index}")
 
                     frame_count += 1
-                
+
                 cap.release()
+                print(f"Total Frames Processed: {frame_count}")
+                print(f"Sampled Observations: {len(sampled_obs)}")
+                exit(0)
                 outputs.append(sampled_obs)
 
             # Read the task.txt file for the task name
             with open(os.path.join(seqs_path, "task.txt"), "r") as f:
                 task = f.read().strip()
+            exit(0)
 
         elif mode == "npy":
             # Load the numpy file containing sequences
@@ -163,6 +186,8 @@ class SequentialDatasetNp(Dataset):
     
     def __getitem__(self, idx):
         samples = self.sequences[idx]
+        # print("SAMPLES: ", len(samples))
+        # print("SAMPLES[0]: ", samples[0].shape)
         # images = [torch.FloatTensor(np.array(Image.open(s))[::4, ::4].transpose(2, 0, 1) / 255.0) for s in samples]
         images = [self.transform(Image.fromarray(s)) for s in samples]
         x_cond = images[0]  # The first frame is used as the conditional input

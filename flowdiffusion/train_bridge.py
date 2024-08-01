@@ -51,6 +51,10 @@ def main(args):
         min_snr_loss_weight = True,
     )
 
+    results_folder = '../results/bridge'
+    if not os.path.exists(results_folder):
+        os.mkdir(results_folder)
+
     trainer = Trainer(
         diffusion_model=diffusion,
         tokenizer=tokenizer, 
@@ -59,14 +63,14 @@ def main(args):
         valid_set=valid_set,
         train_lr=1e-4,
         train_num_steps =180000,
-        save_and_sample_every =4000,
+        save_and_sample_every =10,
         ema_update_every = 10,
         ema_decay = 0.999,
         train_batch_size =32,
         valid_batch_size =valid_n,
         gradient_accumulate_every = 1,
         num_samples=30, 
-        results_folder ='../results/bridge',
+        results_folder =results_folder,
         fp16 =True,
         amp=True,
     )

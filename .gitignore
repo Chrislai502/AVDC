@@ -1,0 +1,6 @@
+*.mp4
+*.jpg
+*.png
+*.gif
+datasets
+__pycache__

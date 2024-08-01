@@ -23,8 +23,9 @@ def main(args):
         train_set = valid_set = [None] # dummy
     else:
         train_set = SequentialDatasetNp(
-            sample_per_seq=sample_per_seq, 
-            path="../datasets/bridge/numpy/bridge_data_v1/berkeley/", 
+            sample_per_seq=sample_per_seq,  \
+            # path="../datasets/bridge/numpy/bridge_data_v1/berkeley/", 
+            path='../datasets/hdf5_datasets/transfer_cube/vidgen_datasets', \
             target_size=target_size,
             debug=False,
         )
@@ -109,6 +110,7 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--inference_path', type=str, default=None) # path to input image
     parser.add_argument('-t', '--text', type=str, default=None) # task text 
     parser.add_argument('-g', '--guidance_weight', type=int, default=0) # set to positive to use guidance
+    parser.add_argument('-n', '--sample_steps', type=int, default=100) # number of steps to sample
     args = parser.parse_args()
     if args.mode == 'inference':
         assert args.checkpoint_num is not None

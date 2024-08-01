@@ -1,0 +1,3 @@
+# Works
+python train_bridge.py --mode inference -c 42 -p ../examples/banana.jpg -t "put banana in pot or pan"
+python train_bridge.py --mode train -c 42

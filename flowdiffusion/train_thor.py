@@ -95,7 +95,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--checkpoint_num', type=int, default=None) # set to checkpoint number to resume training or generate samples
     parser.add_argument('-p', '--inference_path', type=str, default=None) # set to path to generate samples
     parser.add_argument('-t', '--text', type=str, default=None) # set to text to generate samples
-    parser.add_argumant('-n', '--sample_steps', type=int, default=100) # set to number of steps to sample
+    parser.add_argument('-n', '--sample_steps', type=int, default=100) # set to number of steps to sample
     parser.add_argument('-g', '--guidance_weight', type=int, default=0) # set to positive to use guidance
     args = parser.parse_args()
     if args.mode == 'inference':

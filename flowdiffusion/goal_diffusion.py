@@ -659,7 +659,7 @@ class GoalGaussianDiffusion(nn.Module):
         b, c, h, w = x_start.shape
         noise = default(noise, lambda: torch.randn_like(x_start))
 
-        # noise sample
+        # noisy sample
 
         x = self.q_sample(x_start=x_start, t=t, noise=noise)
 
@@ -769,10 +769,7 @@ class Trainer(object):
         self.image_size = diffusion_model.image_size
 
         # dataset and dataloader
-
-        
         valid_ind = [i for i in range(len(valid_set))][:num_samples]
-
         train_set = train_set
         valid_set = Subset(valid_set, valid_ind)
 
@@ -786,7 +783,6 @@ class Trainer(object):
 
 
         # optimizer
-
         self.opt = Adam(diffusion_model.parameters(), lr = train_lr, betas = adam_betas)
 
         # for logging results in a folder periodically

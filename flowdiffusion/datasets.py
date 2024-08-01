@@ -14,56 +14,148 @@ from einops import rearrange
 # from vidaug import augmentors as va
 
 random.seed(0)
+import cv2
 
 ### Sequential Datasets: given first frame, predict all the future frames
 
+def list_directories_in_directory(directory_path):
+    try:
+        # Get the list of all files and directories in the specified directory
+        all_items = os.listdir(directory_path)
+        
+        # Filter out only directories
+        directories = [item for item in all_items if os.path.isdir(os.path.join(directory_path, item))]
+        
+        return directories
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return []
+
 class SequentialDatasetNp(Dataset):
-    def __init__(self, path="../datasets/numpy/bridge_data_v1/berkeley", sample_per_seq=7, debug=False, target_size=(128, 128)):
+    def __init__(self, path="../datasets/numpy/bridge_data_v1/berkeley", sample_per_seq=7, debug=False, target_size=(128, 128), data_type="npy"):
         print("Preparing dataset...")
         self.sample_per_seq = sample_per_seq
 
+        # Get a list of all file paths that match the pattern **/out.npy within the specified path, recursively.
         sequence_dirs = glob(os.path.join(path, "**/out.npy"), recursive=True)
+        extraction_mode = "npy"
+
+        # If there are no out.npy files in the specified path, extraction mode is "mp4"
+        if not sequence_dirs:
+            sequence_dirs = glob(os.path.join(path, "*/"))
+            extraction_mode = "mp4"
+            print("Extraction Mode: ", extraction_mode, "Path: ", path)
+            print("Sequence Dirs: ", sequence_dirs)
+        
         if debug:
+            # If debug mode is on, only use the first 10 sequences for faster loading and testing.
             sequence_dirs = sequence_dirs[:10]
         self.sequences = []
         self.tasks = []
-    
+
         obss, tasks = [], []
         for seq_dir in tqdm(sequence_dirs):
-            obs, task = self.extract_seq(seq_dir)
+            # Extract sequences and tasks from each file path
+            obs, task = self.extract_seq(seq_dir, extraction_mode)
             tasks.extend(task)
             obss.extend(obs)
 
         self.sequences = obss
+        print("SEQLEN: ", len(self.sequences))
+
         self.tasks = tasks
+        # Define the transformation to be applied to the images
         self.transform = T.Compose([
             T.Resize(target_size),
             T.ToTensor()
         ])
-        print("training_samples: ", len(self.sequences))
-        print("Done")
 
-    def extract_seq(self, seqs_path):
-        seqs = np.load(seqs_path, allow_pickle=True)
-        task = seqs_path.split('/')[-3].replace('_', ' ')
-        outputs = []
-        for seq in seqs:
-            observations = seq["observations"]
-            viewpoints = [v for v in observations[0].keys() if "image" in v]
-            N = len(observations)
-            for viewpoint in viewpoints:
-                full_obs = [observations[i][viewpoint] for i in range(N)]
-                sampled_obs = self.get_samples(full_obs)
+
+    def extract_seq(self, seqs_path, mode="npy"):
+        """
+        Extract sequences and corresponding tasks from the given file path.
+        
+        Parameters:
+        seqs_path (str): Path to the .npy file containing the sequences.
+        
+        Returns:
+        outputs (list): A list of sampled observations from the sequences.
+        tasks (list): A list of task labels corresponding to each sampled observation.
+        """
+        if mode == "mp4":
+            outputs = []
+            for video_file in glob(os.path.join(seqs_path, "*.mp4")):
+                # print(f"Processing video: {video_file}")
+                cap = cv2.VideoCapture(video_file)
+                
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                # print(f"Total Frames: {total_frames}")
+                
+                if total_frames == 0:
+                    cap.release()
+                    continue
+
+                # Calculate frame indices to sample
+                sample_indices = [int(i * (total_frames - 1) / (self.sample_per_seq - 1)) for i in range(self.sample_per_seq - 1)]
+                sample_indices.append(total_frames - 1)  # Ensure the last frame is always included
+                sampled_obs = []
+                frame_count = 0
+                next_sample_index = sample_indices.pop(0)
+
+                while cap.isOpened() and sample_indices:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+
+                    if frame_count == next_sample_index:
+                        sampled_obs.append(frame)
+                        if sample_indices:
+                            next_sample_index = sample_indices.pop(0)
+
+                    frame_count += 1
+                
+                cap.release()
                 outputs.append(sampled_obs)
+
+            # Read the task.txt file for the task name
+            with open(os.path.join(seqs_path, "task.txt"), "r") as f:
+                task = f.read().strip()
+
+        elif mode == "npy":
+            # Load the numpy file containing sequences
+            seqs = np.load(seqs_path, allow_pickle=True)
+            # Extract the task name from the file path (two directories up from the file)
+            task = seqs_path.split('/')[-3].replace('_', ' ')
+            outputs = []
+            for seq in seqs:
+                # Get the observations from the current sequence
+                observations = seq["observations"]
+                # Extract all viewpoints that contain the word "image" in their keys
+                viewpoints = [v for v in observations[0].keys() if "image" in v]
+
+                N = len(observations)  # Number of observations in the sequence
+                for viewpoint in viewpoints:
+                    # Extract all frames for the current viewpoint
+                    full_obs = [observations[i][viewpoint] for i in range(N)]
+                    # Sample a subset of frames from the full sequence
+                    sampled_obs = self.get_samples(full_obs)
+                    outputs.append(sampled_obs)
+        
+        else :
+            raise ValueError(f"Invalid mode: {mode}. Mode must be 'mp4' or 'npy'.")
+        # Return the sampled sequences and the corresponding task label repeated for each sequence
         return outputs, [task] * len(outputs)
 
     def get_samples(self, seq):
-        N = len(seq)
-        ### uniformly sample {self.sample_per_seq} frames, including the first and last frame
+        """
+        Uniformly sample a fixed number of frames from a sequence, including the first and last frames.
+        """
+        N = len(seq)  # Total number of frames in the sequence
         samples = []
+        # Uniformly sample {self.sample_per_seq} frames from the sequence
         for i in range(self.sample_per_seq-1):
             samples.append(int(i*(N-1)/(self.sample_per_seq-1)))
-        samples.append(N-1)
+        samples.append(N-1)  # Ensure the last frame is always included
         return [seq[i] for i in samples]
     
     def __len__(self):
@@ -73,8 +165,8 @@ class SequentialDatasetNp(Dataset):
         samples = self.sequences[idx]
         # images = [torch.FloatTensor(np.array(Image.open(s))[::4, ::4].transpose(2, 0, 1) / 255.0) for s in samples]
         images = [self.transform(Image.fromarray(s)) for s in samples]
-        x_cond = images[0] # first frame
-        x = torch.cat(images[1:], dim=0) # all other frames
+        x_cond = images[0]  # The first frame is used as the conditional input
+        x = torch.cat(images[1:], dim=0)
         task = self.tasks[idx]
         return x, x_cond, task
         

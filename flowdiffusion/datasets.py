@@ -62,8 +62,6 @@ class SequentialDatasetNp(Dataset):
         for seq_dir in tqdm(sequence_dirs):
             # Extract sequences and tasks from each file path
             obs, task = self.extract_seq(seq_dir, extraction_mode)
-            print("OBS: ", len(obs))
-            print("OBS[0]: ", len(obs[0]))
             tasks.extend(task)
             obss.extend(obs)
 
@@ -93,18 +91,7 @@ class SequentialDatasetNp(Dataset):
             outputs = []
             for video_file in glob(os.path.join(seqs_path, "*.mp4")):
                 cap = cv2.VideoCapture(video_file)
-
-                # Alternative method to count total frames
-                total_frames = 0
-                while cap.isOpened():
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-                    total_frames += 1
-
-                cap.release()
-                cap = cv2.VideoCapture(video_file)  # Reopen the video for actual processing
-                print(f"Total Frames: {total_frames}")
+                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
                 if total_frames == 0:
                     cap.release()
@@ -113,36 +100,29 @@ class SequentialDatasetNp(Dataset):
                 # Calculate frame indices to sample
                 sample_indices = [int(i * (total_frames - 1) / (self.sample_per_seq - 1)) for i in range(self.sample_per_seq - 1)]
                 sample_indices.append(total_frames - 1)  # Ensure the last frame is always included
-                print(f"Sample Indices: {sample_indices}")
                 sampled_obs = []
                 frame_count = 0
                 next_sample_index = sample_indices.pop(0)
 
-                while cap.isOpened() and sample_indices:
+                while cap.isOpened():
                     ret, frame = cap.read()
                     if not ret:
-                        print("Frame not read")
                         break
 
                     if frame_count >= next_sample_index:
-                        print(f"Frame Count: {frame_count}, Next Sample Index: {next_sample_index}")
                         sampled_obs.append(frame)
                         if sample_indices:
                             next_sample_index = sample_indices.pop(0)
-                            print(f"Next Sample Index: {next_sample_index}")
 
                     frame_count += 1
-
                 cap.release()
-                print(f"Total Frames Processed: {frame_count}")
-                print(f"Sampled Observations: {len(sampled_obs)}")
-                exit(0)
+                if len(sampled_obs) < self.sample_per_seq:
+                    raise ValueError(f"Insufficient frames sampled: {len(sampled_obs)}")
                 outputs.append(sampled_obs)
 
             # Read the task.txt file for the task name
             with open(os.path.join(seqs_path, "task.txt"), "r") as f:
                 task = f.read().strip()
-            exit(0)
 
         elif mode == "npy":
             # Load the numpy file containing sequences

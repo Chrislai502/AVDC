@@ -775,7 +775,7 @@ class Trainer(object):
 
         self.ds = train_set
         self.valid_ds = valid_set
-        dl = DataLoader(self.ds, batch_size = train_batch_size, shuffle = True, pin_memory = True, num_workers = 4)
+        dl = DataLoader(self.ds, batch_size = train_batch_size, shuffle = True, pin_memory = True, num_workers = 4, drop_last = True)
         # dl = dataloader
         dl = self.accelerator.prepare(dl)
         self.dl = cycle(dl)

@@ -25,7 +25,7 @@ def main(args):
         train_set = SequentialDatasetNp(
             sample_per_seq=sample_per_seq,  \
             # path="../datasets/bridge/numpy/bridge_data_v1/berkeley/", 
-            path='../datasets/hdf5_datasets/transfer_cube/vidgen_datasets', \
+            path='../datasets/vidgen_datasets', \
             target_size=target_size,
             debug=False,
         )
@@ -63,7 +63,9 @@ def main(args):
         valid_set=valid_set,
         train_lr=1e-4,
         train_num_steps =180000,
-        save_and_sample_every =10,
+        # save_and_sample_every =1,
+        save_every = 4000,
+        sample_every = 100,
         ema_update_every = 10,
         ema_decay = 0.999,
         train_batch_size =32,

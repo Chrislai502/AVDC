@@ -110,7 +110,7 @@ class SequentialDatasetNp(Dataset):
                         break
 
                     if frame_count >= next_sample_index:
-                        sampled_obs.append(frame)
+                        sampled_obs.append(frame[:, :, ::-1])  # Convert BGR to RGB
                         if sample_indices:
                             next_sample_index = sample_indices.pop(0)
 

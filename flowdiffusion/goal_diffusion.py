@@ -712,7 +712,9 @@ class Trainer(object):
         ema_update_every = 10,
         ema_decay = 0.995,
         adam_betas = (0.9, 0.99),
-        save_and_sample_every = 1000,
+        # save_and_sample_every = 1000,
+        save_every = 4000,
+        sample_every = 1000,
         num_samples = 3,
         results_folder = './results',
         amp = True,
@@ -759,7 +761,9 @@ class Trainer(object):
 
         # assert has_int_squareroot(num_samples), 'number of samples must have an integer square root'
         self.num_samples = num_samples
-        self.save_and_sample_every = save_and_sample_every
+        # self.save_and_sample_every = save_and_sample_every
+        self.save_every = save_every
+        self.sample_every = sample_every
 
         self.batch_size = train_batch_size
         self.valid_batch_size = valid_batch_size
@@ -896,53 +900,56 @@ class Trainer(object):
                 if accelerator.is_main_process:
                     self.ema.update()
 
-                    if self.step != 0 and self.step % self.save_and_sample_every == 0:
-                        self.ema.ema_model.eval()
+                    if self.step != 0 and (self.step % self.save_every == 0 or self.step % self.sample_every == 0):
+                        if self.step % self.save_every == 0:
+                            milestone = self.step
+                            self.save(milestone)
+                        elif self.step % self.sample_every == 0:
+                            self.ema.ema_model.eval()
 
-                        with torch.no_grad():
-                            milestone = self.step // self.save_and_sample_every
-                            batches = num_to_groups(self.num_samples, self.valid_batch_size)
-                            ### get val_imgs from self.valid_dl
-                            x_conds = []
-                            xs = []
-                            task_embeds = []
-                            for i, (x, x_cond, label) in enumerate(self.valid_dl):
-                                xs.append(x)
-                                x_conds.append(x_cond.to(device))
-                                task_embeds.append(self.encode_batch_text(label))
+                            with torch.no_grad():
+                                milestone = self.step
+                                batches = num_to_groups(self.num_samples, self.valid_batch_size)
+                                ### get val_imgs from self.valid_dl
+                                x_conds = []
+                                xs = []
+                                task_embeds = []
+                                for i, (x, x_cond, label) in enumerate(self.valid_dl):
+                                    xs.append(x)
+                                    x_conds.append(x_cond.to(device))
+                                    task_embeds.append(self.encode_batch_text(label))
+                                
+                                with self.accelerator.autocast():
+                                    all_xs_list = list(map(lambda n, c, e: self.ema.ema_model.sample(batch_size=n, x_cond=c, task_embed=e), batches, x_conds, task_embeds))
                             
-                            with self.accelerator.autocast():
-                                all_xs_list = list(map(lambda n, c, e: self.ema.ema_model.sample(batch_size=n, x_cond=c, task_embed=e), batches, x_conds, task_embeds))
-                        
-                        print_gpu_utilization()
-                        
-                        gt_xs = torch.cat(xs, dim = 0) # [batch_size, 3*n, 120, 160]
-                        # make it [batchsize*n, 3, 120, 160]
-                        n_rows = gt_xs.shape[1] // 3
-                        gt_xs = rearrange(gt_xs, 'b (n c) h w -> b n c h w', n=n_rows)
-                        ### save images
-                        x_conds = torch.cat(x_conds, dim = 0).detach().cpu()
-                        # x_conds = rearrange(x_conds, 'b (n c) h w -> b n c h w', n=1)
-                        all_xs = torch.cat(all_xs_list, dim = 0).detach().cpu()
-                        all_xs = rearrange(all_xs, 'b (n c) h w -> b n c h w', n=n_rows)
+                            print_gpu_utilization()
+                            
+                            gt_xs = torch.cat(xs, dim = 0) # [batch_size, 3*n, 120, 160]
+                            # make it [batchsize*n, 3, 120, 160]
+                            n_rows = gt_xs.shape[1] // 3
+                            gt_xs = rearrange(gt_xs, 'b (n c) h w -> b n c h w', n=n_rows)
+                            ### save images
+                            x_conds = torch.cat(x_conds, dim = 0).detach().cpu()
+                            # x_conds = rearrange(x_conds, 'b (n c) h w -> b n c h w', n=1)
+                            all_xs = torch.cat(all_xs_list, dim = 0).detach().cpu()
+                            all_xs = rearrange(all_xs, 'b (n c) h w -> b n c h w', n=n_rows)
 
-                        gt_first = gt_xs[:, :1]
-                        gt_last = gt_xs[:, -1:]
+                            gt_first = gt_xs[:, :1]
+                            gt_last = gt_xs[:, -1:]
 
 
 
-                        if self.step == self.save_and_sample_every:
-                            os.makedirs(str(self.results_folder / f'imgs'), exist_ok = True)
-                            gt_img = torch.cat([gt_first, gt_last, gt_xs], dim=1)
-                            gt_img = rearrange(gt_img, 'b n c h w -> (b n) c h w', n=n_rows+2)
-                            utils.save_image(gt_img, str(self.results_folder / f'imgs/gt_img.png'), nrow=n_rows+2)
+                            if self.step % self.sample_every == 0:
+                                os.makedirs(str(self.results_folder / f'imgs'), exist_ok = True)
+                                gt_img = torch.cat([gt_first, gt_last, gt_xs], dim=1)
+                                gt_img = rearrange(gt_img, 'b n c h w -> (b n) c h w', n=n_rows+2)
+                                utils.save_image(gt_img, str(self.results_folder / f'imgs/gt_img.png'), nrow=n_rows+2)
 
-                        os.makedirs(str(self.results_folder / f'imgs/outputs'), exist_ok = True)
-                        pred_img = torch.cat([gt_first, gt_last,  all_xs], dim=1)
-                        pred_img = rearrange(pred_img, 'b n c h w -> (b n) c h w', n=n_rows+2)
-                        utils.save_image(pred_img, str(self.results_folder / f'imgs/outputs/sample-{milestone}.png'), nrow=n_rows+2)
-
-                        self.save(milestone)
+                                os.makedirs(str(self.results_folder / f'imgs/outputs'), exist_ok = True)
+                                pred_img = torch.cat([gt_first, gt_last,  all_xs], dim=1)
+                                pred_img = rearrange(pred_img, 'b n c h w -> (b n) c h w', n=n_rows+2)
+                                utils.save_image(pred_img, str(self.results_folder / f'imgs/outputs/sample-{milestone}.jpg'), nrow=n_rows+2)
+                            
 
                 pbar.update(1)
 

@@ -27,3 +27,15 @@ python train_bridge.py --mode inference -c 180000 \
     -p /home/cobot/testing/AVDC/results/bridge/first_frames/right_hand_pick/episode_0_cam_low.jpg \
     -t "pick up orange object hand over object"
 
+# Kitting Dataset
+python train_bridge.py --mode inference -c 188000 \
+    -p /home/cobot/testing/avdc/results/testing_data/first_seg_first_frame.png\
+    -t "Right arm picking up first metal block piece on the right"
+
+python train_bridge.py --mode inference -c 188000 \
+    -p /home/cobot/testing/avdc/results/testing_data/third_seg_first_frame.png\
+    -t "Left arm Picks up big metal piece on the left of the table"
+
+python train_bridge.py --mode inference -c 188000 \
+    -p /home/cobot/testing/avdc/results/testing_data/sixth_seg_first_frame.png\
+    -t ""

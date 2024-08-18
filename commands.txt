@@ -1,3 +1,29 @@
 # Works
 python train_bridge.py --mode inference -c 42 -p ../examples/banana.jpg -t "put banana in pot or pan"
 python train_bridge.py --mode train -c 42
+python train_bridge.py --mode train -c 42
+
+# Original tuned prompts:
+# 1. pick up orange object with right arm
+# 2. hand over object in right arm to left arm
+# 3. place object in left arm onto blue square in table
+
+
+# Out of Domain
+python train_bridge.py --mode inference -c 45 \
+    -p ../examples/kitchen.png \
+    -t "place object in left hand out of blue basin"
+
+python train_bridge.py --mode inference -c 45 \
+    -p ../examples/ziploc.png \
+    -t "Open Up Ziploc Bag"
+
+# In domain 
+python train_bridge.py --mode inference -c 180000 \
+    -p /home/cobot/testing/AVDC/results/bridge/first_frames/right_hand_pick/episode_0_cam_low.jpg \
+    -t "pick up orange object with right arm, hand over object in right arm to left arm"
+
+python train_bridge.py --mode inference -c 180000 \
+    -p /home/cobot/testing/AVDC/results/bridge/first_frames/right_hand_pick/episode_0_cam_low.jpg \
+    -t "pick up orange object hand over object"
+

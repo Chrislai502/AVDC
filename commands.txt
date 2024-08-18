@@ -3,6 +3,13 @@ python train_bridge.py --mode inference -c 42 -p ../examples/banana.jpg -t "put 
 python train_bridge.py --mode train -c 42
 python train_bridge.py --mode train -c 42
 
+python train_bridge.py --mode inference -c 180000 -p /home/weixun/testing/avdc/examples/kitting/first_seg_first_frame.png -t "Right arm picking up first metal block piece on the right."
+python train_bridge.py --mode inference -c 180000 -p /home/weixun/testing/avdc/examples/kitting/second_seg_first_frame.png -t "Place block in right hand into blue bin or container"
+python train_bridge.py --mode inference -c 180000 -p /home/weixun/testing/avdc/examples/kitting/third_seg_first_frame.png -t "Left arm Picks up big metal piece on the left of the table"
+python train_bridge.py --mode inference -c 180000 -p /home/weixun/testing/avdc/examples/kitting/fourth_seg_first_frame.png -t "Place block in left hand into blue bin or container"
+python train_bridge.py --mode inference -c 180000 -p /home/weixun/testing/avdc/examples/kitting/fifth_seg_first_frame.png -t "Right arm pick up small metal block piece not in the blue container or bin"
+python train_bridge.py --mode inference -c 180000 -p /home/weixun/testing/avdc/examples/kitting/sixth_seg_first_frame.png -t ""
+
 # Original tuned prompts:
 # 1. pick up orange object with right arm
 # 2. hand over object in right arm to left arm

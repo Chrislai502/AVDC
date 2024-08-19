@@ -21,7 +21,6 @@ class AVDCServer:
         cache_dir = os.path.join(class_dir, "cache")
         os.makedirs(cache_dir, exist_ok=True)
         gif_path = self.model.generate(image, text, output_gif_path=os.path.join(cache_dir, "temp.gif"))
-
         return gif_path
 
     def handle_client(self, conn, addr):
@@ -72,10 +71,16 @@ class AVDCServer:
             with open(gif_path, 'rb') as gif_file:
                 gif_data = gif_file.read()
                 conn.sendall(gif_data)
+            
+            # Pending Receive Message
+            response = conn.recv(self.buffer_size).decode()
+            if response != "RECEIVED GIF!":
+                print("Failed to get acknowledgment for GIF receipt.")
+                return
 
             # Delete the GIF file after sending
             os.remove(gif_path)
-            print("GIF sent and deleted from server.")
+            print("Received Acknowledgement of receipt, GIF will be deleted from server.")
         finally:
             conn.close()
 

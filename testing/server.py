@@ -5,39 +5,22 @@ import os
 from flowdiffusion.infer import InferAVDC
 
 class_dir = os.path.dirname(os.path.abspath(__file__))
+CHECKPOINT_PATH = "/home/cobot/testing/avdc/results/bridge/model-188000.pt"
 
 class AVDCServer:
     def __init__(self, host='0.0.0.0', port=12345, buffer_size=4096):
         self.host = host
         self.port = port
         self.buffer_size = buffer_size
-        self.model = InferAVDC(checkpoint_num=188000)  # Initialize the model
+        self.model = InferAVDC(checkpoint_path=CHECKPOINT_PATH)  # Initialize the model
 
     def process_image_and_text(self, image_data, text):
         """Process the received image and text to generate a GIF."""
         # Load the image
         image = Image.open(io.BytesIO(image_data))
-        image = self.model.preprocess_image(image)
         cache_dir = os.path.join(class_dir, "cache")
         os.makedirs(cache_dir, exist_ok=True)
         gif_path = self.model.generate(image, text, output_gif_path=os.path.join(cache_dir, "temp.gif"))
-        # # Convert the image to a GIF with text overlay
-        # frames = []
-        # for i in range(5):  # Create 5 frames for the GIF
-        #     frame = image.copy()
-        #     draw = ImageDraw.Draw(frame)
-        #     draw.text((10, 10), text, fill="white")  # Draw text on the image
-        #     frames.append(frame)
-
-        # gif_path = "temp.gif"
-        # frames[0].save(
-        #     gif_path,
-        #     format="GIF",
-        #     save_all=True,
-        #     append_images=frames[1:],
-        #     duration=200,  # Duration for each frame in milliseconds
-        #     loop=0
-        # )
 
         return gif_path
 

@@ -51,7 +51,8 @@ def main(args):
         min_snr_loss_weight = True,
     )
 
-    results_folder = '../results/bridge'
+    # results_folder = '../results/bridge'
+    results_folder = '../results/kitting'
     if not os.path.exists(results_folder):
         os.mkdir(results_folder)
 
